@@ -3,15 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>거리 측정 도구 (글자 크기 조정)</title>
+    <title>거리 측정 도구 (비율 최종 수정)</title>
     <style>
         body { margin: 0; background-color: #222; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; touch-action: none; }
-        canvas { box-shadow: 0 0 20px rgba(0,0,0,0.5); background-color: #444; touch-action: none; border: 1px solid #666; }
+        canvas { 
+            box-shadow: 0 0 20px rgba(0,0,0,0.5); 
+            background-color: #444; 
+            touch-action: none; 
+            border: 1px solid #666;
+            image-rendering: high-quality;
+        }
         #info { position: absolute; top: 10px; left: 10px; color: white; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 8px; z-index: 10; font-family: sans-serif; pointer-events: none; font-size: 13px; }
     </style>
 </head>
 <body>
-    <div id="info">마우스나 터치로 드래그 해보세요!</div>
+    <div id="info">지도 로드 중...</div>
     <canvas id="mapCanvas"></canvas>
 
     <script>
@@ -20,6 +26,7 @@
         const info = document.getElementById('info');
         const img = new Image();
 
+        // 이미지 파일명 확인 필수!
         img.src = 'map_image2.png';
 
         let isDrawing = false;
@@ -41,26 +48,24 @@
                 canvas.width = winW;
                 canvas.height = winH;
                 scaleFactor = 1;
-                info.innerHTML = "<span style='color: #ff9999;'>이미지 로드 대기 중...</span>";
+                info.innerHTML = "이미지를 불러올 수 없습니다.";
             }
             render();
         }
 
         function render() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
             if (img.complete && img.width > 0) {
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            } else {
-                ctx.strokeStyle = "#555";
-                for(let i=0; i<canvas.width; i+=50) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); ctx.stroke(); }
-                for(let i=0; i<canvas.height; i+=50) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(canvas.width,i); ctx.stroke(); }
             }
         }
 
         function getDistanceText(px) {
             const originalPx = px / scaleFactor;
-            const meters = Math.floor(originalPx * 1.028); // 271m -> 436m 비율 유지
-            
+            // 320m 측정값이 426m가 되도록 보정된 계수 (1.368)
+            const meters = Math.floor(originalPx * 1.368); 
             if (meters < 1000) return `${meters} m`;
             return `${Math.floor(meters / 1000)} km ${meters % 1000} m`;
         }
@@ -72,44 +77,27 @@
             return { x: clientX - rect.left, y: clientY - rect.top };
         }
 
-        const startAction = (e) => {
-            isDrawing = true;
-            const pos = getEventPos(e);
-            startX = pos.x; startY = pos.y;
-        };
-
+        const startAction = (e) => { isDrawing = true; const pos = getEventPos(e); startX = pos.x; startY = pos.y; };
         const moveAction = (e) => {
             if (!isDrawing) return;
             if (e.cancelable) e.preventDefault();
             const pos = getEventPos(e);
             render();
-            
-            // 선 그리기
             ctx.beginPath();
             ctx.moveTo(startX, startY);
             ctx.lineTo(pos.x, pos.y);
             ctx.strokeStyle = '#FFDC00';
-            ctx.lineWidth = 5; // 선 두께도 살짝 줄임
+            ctx.lineWidth = 5;
             ctx.lineCap = 'round';
             ctx.stroke();
 
-            const dist = Math.sqrt((pos.x - startX)**2 + (pos.y - startY)**2);
-            const distText = getDistanceText(dist);
-
-            // [수정] 글씨 크기를 기존의 절반 수준으로 조정
+            const distText = getDistanceText(Math.sqrt((pos.x - startX)**2 + (pos.y - startY)**2));
             const fontSize = Math.max(18, canvas.width / 30); 
             ctx.font = `bold ${fontSize}px sans-serif`;
-            ctx.textAlign = "left";
-            
-            // 테두리 두께도 글자 크기에 맞춰 조정
-            ctx.strokeStyle = 'black'; 
-            ctx.lineWidth = 3;
+            ctx.strokeStyle = 'black'; ctx.lineWidth = 3;
             ctx.strokeText(distText, pos.x + 10, pos.y - 10);
-            
-            ctx.fillStyle = 'white';
-            ctx.fillText(distText, pos.x + 10, pos.y - 10);
+            ctx.fillStyle = 'white'; ctx.fillText(distText, pos.x + 10, pos.y - 10);
         };
-
         const endAction = () => { isDrawing = false; };
 
         img.onload = initCanvas;
